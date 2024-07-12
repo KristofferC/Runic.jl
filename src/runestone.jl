@@ -358,9 +358,12 @@ function spaces_in_listlike(ctx::Context, node::Node)
     if first_item_idx !== nothing && first_item_idx >= closing_leaf_idx
         first_item_idx = nothing
     end
-    last_item_idx = findprev(x -> !(JuliaSyntax.is_whitespace(x) || kind(x) in KSet", ;"), kids, closing_leaf_idx - 1)
-    if last_item_idx !== nothing && last_item_idx <= opening_leaf_idx
-        last_item_idx = nothing
+    last_item_idxx = findprev(x -> !(JuliaSyntax.is_whitespace(x) || kind(x) in KSet", ;"), kids, closing_leaf_idx - 1)
+    # if last_item_idx !== nothing && last_item_idx <= opening_leaf_idx
+    #     last_item_idx = nothing
+    # end
+    if last_item_idxx === nothing || last_item_idxx::Int <= opening_leaf_idx
+        last_item_idx::Int = 0
     end
     last_comma_idx = findprev(x -> kind(x) === K",", kids, closing_leaf_idx - 1)
     if last_comma_idx !== nothing && last_comma_idx <= opening_leaf_idx
@@ -371,12 +374,12 @@ function spaces_in_listlike(ctx::Context, node::Node)
     # multiline = contains_outer_newline(kids, opening_leaf_idx, closing_leaf_idx)
     multiline = any(y -> any_leaf(x -> kind(x) === K"NewlineWs", kids[y]), (opening_leaf_idx + 1):(closing_leaf_idx - 1))
 
-    is_named_tuple = kind(node) === K"tuple" && n_items == 1 && kind(kids[first_item_idx]) === K"parameters"
+    is_named_tuple::Bool = kind(node) === K"tuple" && n_items == 1 && kind(kids[first_item_idx]) === K"parameters"
 
     # A trailing comma is required if
     #  - node is a single item tuple which is not from an anonymous fn (Julia-requirement)
     #  - the closing token is not on the same line as the last item (Runic-requirement)
-    require_trailing_comma = false
+    require_trailing_comma::Bool = false
     allow_trailing_semi = false
     if implicit_tuple
         require_trailing_comma = false

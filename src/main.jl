@@ -7,23 +7,24 @@ else
 end
 
 function panic(msg...)
-    printstyled(stderr, "ERROR: "; color = :red, bold = true)
-    for m in msg
-        if m isa Exception
-            showerror(stderr, m)
-        elseif m isa Vector{Base.StackFrame}
-            Base.show_backtrace(stderr, m)
-        else
-            print(stderr, msg...)
-        end
-    end
-    println(stderr)
+    #stderr::Base.TTY = Base.stderr
+    #printstyled(stderr, "ERROR: "; color = :red, bold = true)
+    #for m in msg
+    #    if m isa Exception
+    #        showerror(stderr, m::ErrorException)
+    #    elseif m isa Vector{Base.StackFrame}
+    #        #Base.show_backtrace(stderr, m)
+    #    else
+    #        # print(stderr, msg...)
+    #    end
+    #end
+    #println(stderr)
     global errno = 1
     return errno
 end
 
-okln() = printstyled(stderr, "✔\n"; color = :green, bold = true)
-errln() = printstyled(stderr, "✖\n"; color = :red, bold = true)
+okln() = printstyled(stderr::Base.TTY, "✔\n"; color = :green, bold = true)
+errln() = printstyled(stderr::Base.TTY, "✖\n"; color = :red, bold = true)
 
 # Print a typical cli program help message
 function print_help()
@@ -199,7 +200,7 @@ function main(argv)
         if inputfile == "-"
             input_is_file = false
             sourcetext = try
-                read(stdin, String)
+                read(stdin::Base.TTY, String)
             catch err
                 return panic("could not read input from stdin: ", err)
             end
@@ -252,27 +253,32 @@ function main(argv)
                 str = "Checking `$(input_pretty)` "
                 ndots = 80 - textwidth(str) - 1 - 1
                 dots = ndots > 0 ? "."^ndots : ""
-                printstyled(stderr, str, dots, " "; color = :blue)
+                printstyled(stderr::Base.TTY, str, dots, " "; color = :blue)
             else
                 to = output_is_samefile ? " " : " -> `$(relpath(output))` "
                 str = "Formatting `$(inputfile)`$(to)"
                 ndots = 80 - textwidth(str) - 1 - 1
                 dots = ndots > 0 ? "."^ndots : ""
-                printstyled(stderr, str, dots, " "; color = :blue)
+                printstyled(stderr::Base.TTY, str, dots, " "; color = :blue)
             end
         end
 
         # Call the library to format the text
-        ctx = try
+        ctx::Context = try
             ctx = Context(sourcetext; quiet, verbose, debug, diff, check)
             format_tree!(ctx)
             ctx
         catch err
+            if err isa JuliaSyntax.ParseError
+                # @warn "Parse error" err
+                continue
+            end
             print_progress && errln()
             # Limit stacktrace to 5 frames because Runic uses recursion a lot and 5 should
             # be enough to see where the error occurred.
-            bt = stacktrace(catch_backtrace())[1:5]
-            rc = panic(err, bt)
+            # bt = stacktrace(catch_backtrace())[1:5]
+            bt = nothing
+            rc = panic(err::ErrorException, bt)
             if fail_fast
                 return rc
             end
@@ -290,7 +296,10 @@ function main(argv)
             end
         elseif changed || !inplace
             try
-                write(output, seekstart(ctx.fmt_io))
+                io = open(output::String, "w")
+                write(io, seekstart(ctx.fmt_io))
+                close(io)
+                # write(output::String, seekstart(ctx.fmt_io))
             catch err
                 print_progress && errln()
                 panic("could not write to output: ", err)
@@ -300,23 +309,23 @@ function main(argv)
             print_progress && okln()
         end
         if diff
-            mktempdir() do dir
-                a = mkdir(joinpath(dir, "a"))
-                b = mkdir(joinpath(dir, "b"))
-                file = basename(inputfile)
-                A = joinpath(a, file)
-                B = joinpath(b, file)
-                write(A, ctx.src_str)
-                write(B, seekstart(ctx.fmt_io))
-                cmd = ```
-                $(git) --no-pager diff --color=always --no-index --no-prefix
-                    $(relpath(A, dir)) $(relpath(B, dir))
-                ```
-                # `ignorestatus` because --no-index implies --exit-code
-                cmd = setenv(ignorestatus(cmd); dir = dir)
-                cmd = pipeline(cmd, stdout = stderr, stderr = stderr)
-                run(cmd)
-            end
+            # mktempdir() do dir
+            #     a = mkdir(joinpath(dir, "a"))
+            #     b = mkdir(joinpath(dir, "b"))
+            #     file = basename(inputfile)
+            #     A = joinpath(a, file)
+            #     B = joinpath(b, file)
+            #     write(A, ctx.src_str)
+            #     write(B, seekstart(ctx.fmt_io))
+            #     cmd = ```
+            #     $(git) --no-pager diff --color=always --no-index --no-prefix
+            #         $(relpath(A, dir)) $(relpath(B, dir))
+            #     ```
+            #     # `ignorestatus` because --no-index implies --exit-code
+            #     cmd = setenv(ignorestatus(cmd); dir = dir)
+            #     cmd = pipeline(cmd, stdout = stderr, stderr = stderr)
+            #     run(cmd)
+            # end
         end
 
     end # inputfile loop

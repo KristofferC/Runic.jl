@@ -6,8 +6,18 @@
 
 # JuliaSyntax.jl overloads == for this but seems easier to just define a new function
 function nodes_equal(n1::Node, n2::Node)
-    return head(n1) == head(n2) && span(n1) == span(n2) && # n1.tags == n2.tags &&
-        all(((x, y),) -> nodes_equal(x, y), zip(n1.kids, n2.kids))
+    # return head(n1) == head(n2) && span(n1) == span(n2) && # n1.tags == n2.tags &&
+    #     all(((x, y),) -> nodes_equal(x, y), zip(n1.kids, n2.kids))
+    if !(head(n1) == head(n2) && span(n1) == span(n2))
+        return false
+    end
+    if length(n1.kids) != length(n2.kids)
+        return false
+    end
+    for i in 1:length(n1.kids)
+        nodes_equal(n1.kids[i], n2.kids[i]) || return false
+    end
+    return true
 end
 
 # See JuliaSyntax/src/parse_stream.jl
