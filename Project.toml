@@ -15,6 +15,11 @@ julia = "1.10"
 submodule = "GitRunic"
 
 [apps.runic]
+juliac = true
+trim = "unsafe"
+
+[apps.runic.preferences]
+juliac = true
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
